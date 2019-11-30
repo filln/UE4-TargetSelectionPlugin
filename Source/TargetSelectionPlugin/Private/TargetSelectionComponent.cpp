@@ -31,14 +31,15 @@ UTargetSelectionComponent::UTargetSelectionComponent()
 
 	}
 
-	bIsSortArrayOfActors_AtAll = true;
-	bIsSortArrayOfActors_WhenManualSwitch = false;
-	bIsSortArrayOfActors_WhenLoseCollision = false;
-	bIsSortArrayOfActors_WhenFindCollision = false;
+	bIsSortArrayOfActors_WhenBegin = true;
+	bIsSortArrayOfActors_WhenSwitch = false;
+	bIsSortArrayOfActors_WhenRemove = false;
+	bIsSortArrayOfActors_WhenAddNew = false;
 	bIsWatchingNow = false;
-	bIsUseCollisionIfCustomArray = false;
 	bIsDebugMode = false;
 	bIsShowCollision = false;
+
+	bIsCheckAddingActorsForDuplicates = false;
 
 	IndexOfCurrentObservedActor = 0;
 
@@ -49,7 +50,7 @@ UTargetSelectionComponent::UTargetSelectionComponent()
 	bIsCustomArray = false;
 
 
-	bIsSwitchToFirstActor_WhenLoseCollision = true;
+	bIsSwitchToFirstActor_WhenRemoveObservedActor = true;
 
 }
 
@@ -59,7 +60,7 @@ void UTargetSelectionComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	/*If the owner of the component is valid, then attach the collision to the owner. 
+	/*If the owner of the component is valid, then attach the collision to the owner.
 	It is done again in case the owner is not valid in the constructor.
 	*/
 	if (GetOwner() != nullptr)
@@ -149,7 +150,7 @@ void UTargetSelectionComponent::WatchActors(
 		if (GetAvailableActors())
 		{
 			/*Sort the array if allowed.*/
-			if (bIsSortArrayOfActors_AtAll)
+			if (bIsSortArrayOfActors_WhenBegin)
 			{
 				SortActorsByDistance();
 			}
@@ -204,7 +205,7 @@ void UTargetSelectionComponent::WatchActors_OneFilter_Interface(TSubclassOf<UInt
 		if (GetAvailableActors())
 		{
 			/*Sort the array if allowed.*/
-			if (bIsSortArrayOfActors_AtAll)
+			if (bIsSortArrayOfActors_WhenBegin)
 			{
 				SortActorsByDistance();
 			}
@@ -278,15 +279,13 @@ void UTargetSelectionComponent::WatchActors_CustomArray(
 	ObservedActorsArr.Num() == 0.*/
 	else
 	{
-		/*Copy the array if allowed. */
-		if (bIsUseCollisionIfCustomArray)
-		{
-			CustomArrayDuplicate = CustomArray;
-		}
+		/*Save the array*/
+		CustomArrayDuplicate = CustomArray;
 
 		ObservedActorsArr = CustomArray;
+
 		/*Sort the array if allowed.*/
-		if (bIsSortArrayOfActors_AtAll)
+		if (bIsSortArrayOfActors_WhenBegin)
 		{
 			SortActorsByDistance();
 		}
@@ -334,7 +333,7 @@ void UTargetSelectionComponent::OffWatchingActors()
 
 	bIsWatchingNow = false;
 
-	if (bIsCustomArray && bIsUseCollisionIfCustomArray)
+	if (bIsCustomArray)
 	{
 		CustomArrayDuplicate.Empty();
 	}
@@ -349,7 +348,7 @@ void UTargetSelectionComponent::OffWatchingActors()
 	}
 }
 
-void UTargetSelectionComponent::LoseAndSwitchActors(AActor* LosedActor)
+void UTargetSelectionComponent::RemoveAndSwitchActors(AActor* RemovingActor)
 {
 
 	/*If the observation mode is disabled.*/
@@ -357,44 +356,35 @@ void UTargetSelectionComponent::LoseAndSwitchActors(AActor* LosedActor)
 	{
 		if (bIsDebugMode)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("TargetSelection: LoseAndSwitchActors(): TargetSelection not active."));
+			UE_LOG(LogTemp, Warning, TEXT("TargetSelection: RemoveAndSwitchActors(): TargetSelection not active."));
 		}
 		return;
 	}
 
-	if (LosedActor == nullptr)
+	if (RemovingActor == nullptr)
 	{
 		if (bIsDebugMode)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("TargetSelection: LoseAndSwitchActors(): Losed Actor is not valid."));
-		}
-		return;
-	}
-
-	if (bIsCustomArray && !bIsUseCollisionIfCustomArray)
-	{
-		if (bIsDebugMode)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("TargetSelection: LoseAndSwitchActors(): Use custom array, auto switch don't work if bIsUseCollisionIfCustomArray == false."));
+			UE_LOG(LogTemp, Warning, TEXT("TargetSelection: RemoveAndSwitchActors(): Losed Actor is not valid."));
 		}
 		return;
 	}
 
 	/*If there is no actor in the array who came out of the collision.*/
-	if (!ObservedActorsArr.Contains(LosedActor))
+	if (!ObservedActorsArr.Contains(RemovingActor))
 	{
 		return;
 	}
 
 	/*If the observed actor is the same as the actor that came out.*/
-	if (ObservedActor == LosedActor)
+	if (ObservedActor == RemovingActor)
 	{
 		/*If there is one element in the array.*/
 		if (ObservedActorsArr.Num() == 1)
 		{
 			if (bIsDebugMode)
 			{
-				UE_LOG(LogTemp, Warning, TEXT("TargetSelection: LoseAndSwitchActors(): Last Actor %s is living collision."), *LosedActor->GetName());
+				UE_LOG(LogTemp, Warning, TEXT("TargetSelection: RemoveAndSwitchActors(): Last Actor %s is living collision."), *RemovingActor->GetName());
 			}
 			OffWatchingActors();
 			return;
@@ -404,22 +394,22 @@ void UTargetSelectionComponent::LoseAndSwitchActors(AActor* LosedActor)
 		{
 			/*Send a signal to the actor that he's not being observed.*/
 			CallInterfaceIsNotObserved();
-			if (bIsDebugMode)
-			{
-				UE_LOG(LogTemp, Warning, TEXT("TargetSelection: LoseAndSwitchActors(): %s is living collision."), *LosedActor->GetName());
-			}
 
 			/*Remove the observed actor from the array.*/
 			ObservedActorsArr.RemoveAt(IndexOfCurrentObservedActor);
+			if (bIsDebugMode)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("TargetSelection: RemoveAndSwitchActors(): %s removed from ObservedActorsArr."), *RemovingActor->GetName());
+			}
 
 			/*If allowed, then sort it.*/
-			if (bIsSortArrayOfActors_WhenLoseCollision)
+			if (bIsSortArrayOfActors_WhenRemove)
 			{
 				SortActorsByDistance();
 			}
 
 			/*If allowed, then assign the index of the observed actor 0.*/
-			if (bIsSwitchToFirstActor_WhenLoseCollision)
+			if (bIsSwitchToFirstActor_WhenRemoveObservedActor)
 			{
 				IndexOfCurrentObservedActor = 0;
 			}
@@ -447,11 +437,11 @@ void UTargetSelectionComponent::LoseAndSwitchActors(AActor* LosedActor)
 			{
 				if (ObservedActor != nullptr)
 				{
-					UE_LOG(LogTemp, Warning, TEXT("TargetSelection: LoseAndSwitchActors(): switch to %s."), *ObservedActor->GetName());
+					UE_LOG(LogTemp, Warning, TEXT("TargetSelection: RemoveAndSwitchActors(): switch to %s."), *ObservedActor->GetName());
 				}
 				else
 				{
-					UE_LOG(LogTemp, Warning, TEXT("TargetSelection: LoseAndSwitchActors(): Observed Actor is not valid."));
+					UE_LOG(LogTemp, Warning, TEXT("TargetSelection: RemoveAndSwitchActors(): Observed Actor is not valid."));
 				}
 			}
 		}
@@ -461,68 +451,153 @@ void UTargetSelectionComponent::LoseAndSwitchActors(AActor* LosedActor)
 	else
 	{
 		/*Remove it from the array.*/
-		ObservedActorsArr.RemoveSingle(LosedActor);
+		ObservedActorsArr.RemoveSingle(RemovingActor);
 
 		/*Find a new index for the actor being monitored.*/
 		IndexOfCurrentObservedActor = ObservedActorsArr.Find(ObservedActor);
 
 		if (bIsDebugMode)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("TargetSelection: LoseAndSwitchActors(): %s is living collision."), *LosedActor->GetName());
+			UE_LOG(LogTemp, Warning, TEXT("TargetSelection: RemoveAndSwitchActors(): %s removed from ObservedActorsArr."), *RemovingActor->GetName());
 		}
 	}
 }
 
-void UTargetSelectionComponent::FindActors(AActor* FindedActor)
+void UTargetSelectionComponent::AddActor(AActor* NewActor)
 {
 	/*If the observation mode is disabled.*/
 	if (!bIsWatchingNow)
 	{
 		if (bIsDebugMode)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("TargetSelection: FindActors(): TargetSelection not active."));
+			UE_LOG(LogTemp, Warning, TEXT("TargetSelection: AddActor(): TargetSelection not active."));
 		}
 		return;
 	}
 
 	/*If the actor found isn't valid.*/
-	if (FindedActor == nullptr)
+	if (NewActor == nullptr)
 	{
 		if (bIsDebugMode)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("TargetSelection: FindActors(): Finded Actor is not valid."));
-		}
-		return;
-	}
-
-	/*If the outside array mode is enabled.*/
-	if (bIsCustomArray && !bIsUseCollisionIfCustomArray)
-	{
-		if (bIsDebugMode)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("TargetSelection: FindActors(): Use custom array, auto switch don't work if bIsUseCollisionIfCustomArray == false."));
+			UE_LOG(LogTemp, Warning, TEXT("TargetSelection: AddActor(): FindedActor is not valid."));
 		}
 		return;
 	}
 
 	/*If the Actor didn't pass the filters.*/
-	if (!SortActorByFilters(FindedActor))
+	if (!SortActorByFilters(NewActor))
 	{
 		return;
 	}
 
 	/*If the filter has passed, add the actor to the array.*/
-	ObservedActorsArr.Add(FindedActor);
+	ObservedActorsArr.Add(NewActor);
 
 	if (bIsDebugMode)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("TargetSelection: FindActors(): %s is find collision."), *FindedActor->GetName());
+		UE_LOG(LogTemp, Warning, TEXT("TargetSelection: AddActor(): %s added."), *NewActor->GetName());
 	}
 
 	/*If sorting is allowed.*/
-	if (bIsSortArrayOfActors_WhenFindCollision)
+	if (bIsSortArrayOfActors_WhenAddNew)
 	{
 		SortActorsByDistance();
+	}
+}
+
+void UTargetSelectionComponent::SetObservedActorByPointer(AActor* NewObservedActor)
+{
+	int32 NewIndex = ObservedActorsArr.Find(NewObservedActor);
+	if (NewIndex == INDEX_NONE)
+	{
+		if (bIsDebugMode)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("TargetSelection: SetObservedActorByPointer(): NewObservedActor is not presence in ObservedActorsArr, first add it using the method AddActor."));
+		}
+		return;
+	}
+
+	/*Call the IsNotObserved() interface method.*/
+	CallInterfaceIsNotObserved();
+
+	if (bIsDebugMode)
+	{
+		UE_LOG(LogTemp, Display, TEXT("TargetSelection: Switch from %s"), *ObservedActor->GetName());
+	}
+
+	IndexOfCurrentObservedActor = NewIndex;
+	ObservedActor = NewObservedActor;
+
+	/*Call the IsObserved() interface method.*/
+	CallInterfaceIsObserved();
+
+	/*Call up the switching dispatcher.*/
+	OnSwitchActor.Broadcast(ObservedActor);
+
+	/*Sort the array if allowed.*/
+	if (bIsSortArrayOfActors_WhenSwitch)
+	{
+		SortActorsByDistance();
+	}
+
+	if (bIsDebugMode)
+	{
+		if (ObservedActor != nullptr)
+		{
+			UE_LOG(LogTemp, Display, TEXT("TargetSelection: to %s"), *ObservedActor->GetName());
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("TargetSelection: Observed Actor is not valid."));
+		}
+	}
+}
+
+void UTargetSelectionComponent::SetObservedActorByIndex(int32 IndexOfNewObservedActor)
+{
+	if (!ObservedActorsArr.IsValidIndex(IndexOfNewObservedActor))
+	{
+		if (bIsDebugMode)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("TargetSelection: SetObservedActorByIndex(): IndexOfNewObservedActor is not valid."));
+		}
+		return;
+	}
+
+	/*Call the IsNotObserved() interface method.*/
+	CallInterfaceIsNotObserved();
+
+	if (bIsDebugMode)
+	{
+		UE_LOG(LogTemp, Display, TEXT("TargetSelection: Switch from %s"), *ObservedActor->GetName());
+	}
+
+	IndexOfCurrentObservedActor = IndexOfNewObservedActor;
+	ObservedActor = ObservedActorsArr[IndexOfNewObservedActor];
+
+	/*Call the IsObserved() interface method.*/
+	CallInterfaceIsObserved();
+
+	/*Call up the switching dispatcher.*/
+	OnSwitchActor.Broadcast(ObservedActor);
+
+	/*Sort the array if allowed.*/
+	if (bIsSortArrayOfActors_WhenSwitch)
+	{
+		SortActorsByDistance();
+	}
+
+	if (bIsDebugMode)
+	{
+		if (ObservedActor != nullptr)
+		{
+			UE_LOG(LogTemp, Display, TEXT("TargetSelection: to %s"), *ObservedActor->GetName());
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("TargetSelection: Observed Actor is not valid."));
+		}
 	}
 }
 
@@ -702,7 +777,7 @@ bool UTargetSelectionComponent::SwitchCurrentActors()
 		OnSwitchActor.Broadcast(ObservedActor);
 
 		/*Sort the array if allowed.*/
-		if (bIsSortArrayOfActors_AtAll && bIsSortArrayOfActors_WhenManualSwitch)
+		if (bIsSortArrayOfActors_WhenSwitch)
 		{
 			SortActorsByDistance();
 		}
@@ -844,21 +919,6 @@ bool UTargetSelectionComponent::GetAvailableActors()
 
 bool UTargetSelectionComponent::SortActorByFilters(AActor* CurrentActor)
 {
-	/*If allowed, go through the copy of the outside array and find matches with CurrentActor.*/
-	if (bIsCustomArray && bIsUseCollisionIfCustomArray)
-	{
-		bool bIsValidCustomArrayFilter = false;
-		for (auto& CurrentActorDuplicate : CustomArrayDuplicate)
-		{
-			if (CurrentActor == CurrentActorDuplicate)
-			{
-				bIsValidCustomArrayFilter = true;
-				break;
-			}
-		}
-
-		return bIsValidCustomArrayFilter;
-	}
 
 	if (CurrentActor == nullptr)
 	{
@@ -868,6 +928,28 @@ bool UTargetSelectionComponent::SortActorByFilters(AActor* CurrentActor)
 		}
 		return false;
 	}
+
+	if (ObservedActorsArr.Num() > 0 && bIsCheckAddingActorsForDuplicates)
+	{
+		if (ObservedActorsArr.Contains(CurrentActor))
+		{
+			if (bIsDebugMode)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("TargetSelection: SortActorByFilters(): ObservedActorsArr is contains adding Actor."));
+			}
+			return false;
+		}
+	}
+
+	/*If allowed, go through the copy of the outside array and find matches with CurrentActor.*/
+	if (bIsCustomArray)
+	{
+		if (CustomArrayDuplicate.Contains(CurrentActor))
+		{
+			return true;
+		}
+	}
+
 	/*If the filter is valid.*/
 	if (bIsValidClassesFilter)
 	{

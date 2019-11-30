@@ -31,30 +31,25 @@ public:
 
 public:
 
-	/*Do you want to sort the array of observed actors?*/
+	/*Do you want to sort the array of observed actors when begin watching?*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TargetSelectionComponent")
-		bool bIsSortArrayOfActors_AtAll;
+		bool bIsSortArrayOfActors_WhenBegin;
 
 	/*Do you want to sort the array of observed actors after switching between them?*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TargetSelectionComponent")
-		bool bIsSortArrayOfActors_WhenManualSwitch;
+		bool bIsSortArrayOfActors_WhenSwitch;
 
-	/*Do you want to sort the array of observed actors when they leave the collision boundary?*/
+	/*Do you want to sort the array of observed actors when they remove?*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TargetSelectionComponent")
-		bool bIsSortArrayOfActors_WhenLoseCollision;
+		bool bIsSortArrayOfActors_WhenRemove;
 
-	/*Do you want to sort the array of observed actors when they come into collision?*/
+	/*Do you want to sort the array of observed actors when they add?*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TargetSelectionComponent")
-		bool bIsSortArrayOfActors_WhenFindCollision;
+		bool bIsSortArrayOfActors_WhenAddNew;
 
-	/*Do you want to switch to the first actor in the array when the observed one leaves the collision? If false, switch to the previous actor in the array.*/
+	/*Do you want to switch to the first actor in the array when the observed one remove? If false, switch to the previous actor in the array.*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TargetSelectionComponent")
-		bool bIsSwitchToFirstActor_WhenLoseCollision;
-
-	/*Do you use collision in the custom array mode (WatchActors_CustomArray) to include or exclude actors from the observed ones?
-	*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TargetSelectionComponent")
-		bool bIsUseCollisionIfCustomArray;
+		bool bIsSwitchToFirstActor_WhenRemoveObservedActor;
 
 	/*
 		Shall I activate the debug mode? (Print to message log.)
@@ -68,13 +63,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TargetSelectionComponent")
 		bool bIsShowCollision;
 
-	/*An array of actors that can be observed.*/
-	UPROPERTY(BlueprintReadOnly, Category = "TargetSelectionComponent")
-		TArray<AActor*> ObservedActorsArr;
-
-	/*Collision for actor observation.*/
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "TargetSelectionComponent")
-		USphereComponent* TargetSelectionCollision;
+	/*
+	Do you check added actors for presence in the ObservedActorsArr array?
+	It is recommended to enable it only if you add actors manually.
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TargetSelectionComponent")
+		bool bIsCheckAddingActorsForDuplicates;
 
 	/*Declare the dispatcher to be called up when the observation is turned on or off.*/
 	UPROPERTY(BlueprintAssignable, Category = "TargetSelectionComponent")
@@ -85,11 +79,21 @@ public:
 		FOnSwitchActorS OnSwitchActor;
 
 private:
-
-
 	/*The actor currently being observed.*/
 	UPROPERTY(BlueprintGetter = GetObservedActor, Category = "TargetSelectionComponent")
 		AActor* ObservedActor;
+
+	/*Index of the currently observed ObservedActor actor in the ObservedActorsArr array.*/
+	UPROPERTY(BlueprintGetter = GetIndexOfCurrentObservedActor, Category = "TargetSelectionComponent")
+		int32 IndexOfCurrentObservedActor;
+
+	/*An array of actors that can be observed.*/
+	UPROPERTY(BlueprintGetter = GetObservedActorsArr, Category = "TargetSelectionComponent")
+		TArray<AActor*> ObservedActorsArr;
+
+	/*Collision for actor observation.*/
+	UPROPERTY(EditAnywhere, BlueprintGetter = GetTargetSelectionCollision, Category = "TargetSelectionComponent")
+		USphereComponent* TargetSelectionCollision;
 
 	/*Is the observation in process now?*/
 	UPROPERTY(BlueprintGetter = GetIsWatchingNow, Category = "TargetSelectionComponent")
@@ -120,15 +124,13 @@ private:
 	/*Is the interface filter valid?*/
 	bool bIsValidInterfaceFilter;
 
-	/*Index of the currently observed ObservedActor actor in the ObservedActorsArr array.*/
-	int32 IndexOfCurrentObservedActor;
 
 	/*Component owner.*/
 	AActor* Owner;
 
-	/*Copy of the outside array of actors. Used if
-	bIsCustomArray == true && bIsUseCollisionIfCustomArray == true Used in SortActorByFilters()
-	when checking if an actor was in an input outside array.
+	/*Copy of the outside array of actors.
+	Used if	bIsCustomArray == true.
+	Used in SortActorByFilters() when checking if an actor was in an input outside array.
 	*/
 	TArray<AActor*> CustomArrayDuplicate;
 
@@ -180,18 +182,30 @@ public:
 		@param LosedActor The actor what left the collision.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "TargetSelectionComponent")
-		void LoseAndSwitchActors(AActor* LosedActor);
+		void RemoveAndSwitchActors(AActor* RemovingActor);
 
 	/*
 		Add an actor to the array. Must be triggered when an actor enters a collision.
 		@param FindedActor The actor that came into collision.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "TargetSelectionComponent")
-		void FindActors(AActor* FindedActor);
+		void AddActor(AActor* NewActor);
 
 	/*Get a pointer to the observed actor.*/
 	UFUNCTION(BlueprintGetter, Category = "TargetSelectionComponent")
 		AActor* GetObservedActor() const { return ObservedActor; };
+
+	/*Get index of the currently observed ObservedActor actor in the ObservedActorsArr array.*/
+	UFUNCTION(BlueprintGetter, Category = "TargetSelectionComponent")
+		int32 GetIndexOfCurrentObservedActor() { return IndexOfCurrentObservedActor; };
+
+	/*Get an array of actors that can be observed.*/
+	UFUNCTION(BlueprintGetter, Category = "TargetSelectionComponent")
+		TArray<AActor*> GetObservedActorsArr() { return ObservedActorsArr; };
+
+	/*Get collision for actor observation.*/
+	UFUNCTION(BlueprintGetter, Category = "TargetSelectionComponent")
+		USphereComponent* GetTargetSelectionCollision() { return TargetSelectionCollision; };
 
 	/*Get the current state - is it being observed now?*/
 	UFUNCTION(BlueprintGetter, Category = "TargetSelectionComponent")
@@ -200,6 +214,20 @@ public:
 	/*Get current state - uses an outside array?*/
 	UFUNCTION(BlueprintGetter, Category = "TargetSelectionComponent")
 		bool GetIsCustomArray() { return bIsCustomArray; };
+
+	/*
+	Assign the observed actor by the pointer. The actor must be in the ObservedActorsArr array.
+	If it is not in the array, add it using the AddActor method first.
+	NewObservedActor is checked for validity and presence in the array.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "TargetSelectionComponent")
+		void SetObservedActorByPointer(AActor* NewObservedActor);
+
+	/*Assign the observed actor by index. The index is checked for validity.*/
+	UFUNCTION(BlueprintCallable, Category = "TargetSelectionComponent")
+		void SetObservedActorByIndex(int32 IndexOfNewObservedActor);
+
+
 
 private:
 
