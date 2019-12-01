@@ -10,7 +10,7 @@
 	"DocsURL": "https://github.com/filln/UE4-TargetSelectionPlugin/wiki/Maintenance",
 	"MarketplaceURL": "",
 	"SupportURL": "https://forums.unrealengine.com/community/released-projects/1693021-targetselectionplugin",
-	"EngineVersion": "4.20.0",
+	"EngineVersion": "4.22.0",
 	"CanContainContent": true,
 	"Installed": true,
 	"Modules": [
