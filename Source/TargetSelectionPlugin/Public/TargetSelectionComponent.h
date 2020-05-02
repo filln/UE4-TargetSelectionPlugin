@@ -47,7 +47,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TargetSelectionComponent")
 		bool bIsSortArrayOfActors_WhenAddNew;
 
-	/*Do you want to switch to the first actor in the array when the observed one remove? If false, switch to the previous actor in the array.*/
+	/*Do you want to switch to the first actor in the array when the observed one remove? If false, switch to the next actor in the array.*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TargetSelectionComponent")
 		bool bIsSwitchToFirstActor_WhenRemoveObservedActor;
 

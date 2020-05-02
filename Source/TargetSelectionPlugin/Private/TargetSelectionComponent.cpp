@@ -415,9 +415,6 @@ void UTargetSelectionComponent::RemoveAndSwitchActors(AActor* RemovingActor)
 			}
 			else
 			{
-
-				--IndexOfCurrentObservedActor;
-
 				/*If the current index is outside the array.*/
 				if (IndexOfCurrentObservedActor > ObservedActorsArr.Num() - 1)
 				{
